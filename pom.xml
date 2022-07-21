@@ -4,18 +4,18 @@
 		http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<parent>
+	<!-- parent>
 		<groupId>ome</groupId>
 		<artifactId>pom-omero-client</artifactId>
 		<version>5.4.3</version>
-	</parent>
+	</parent-->
 
 	<groupId>edu.umassmed.OmeroDataWriter</groupId>
-	<artifactId>CancerAvatarOmeroDataWriter</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<artifactId>W-IDM_OmeroDataWriter</artifactId>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
-	<name>CancerAvatarOmeroDataWriter</name>
+	<name>W-IDM_OmeroDataWriter</name>
 	<description>TBD</description>
 	<url>TBD</url>
 
@@ -27,6 +27,11 @@
 			<version>4.11</version>
 		</dependency>
 		<dependency>
+			<groupId>org.openmicroscopy</groupId>
+			<artifactId>omero-gateway</artifactId>
+			<version>5.6.7</version>
+		</dependency>
+		<!-- dependency>
 			<groupId>omero</groupId>
 			<artifactId>blitz</artifactId>
 		</dependency>
@@ -37,9 +42,9 @@
 		<dependency>
 			<groupId>ome</groupId>
 			<artifactId>formats-gpl</artifactId>
-		</dependency>
+		</dependency -->
 	</dependencies>
-	<profiles>
+	<!--profiles>
 		<profile>
 			<id>ice35</id>
 			<activation>
@@ -63,14 +68,14 @@
 				<ice.version>ice36</ice.version>
 			</properties>
 		</profile>
-	</profiles>
+	</profiles-->
 	
 	<repositories>
 		<repository>
 			<id>ome.maven</id>
 			<url>http://artifacts.openmicroscopy.org/artifactory/maven/</url>
 		</repository>
-		<repository>
+		<!-- repository>
 			<id>unidata-releases</id>
 			<name>unidata-releases</name>
 			<url>https://artifacts.unidata.ucar.edu/content/repositories/unidata-releases</url>
@@ -79,7 +84,7 @@
 			<id>zeroc</id>
 			<name>zeroc</name>
 			<url>https://repo.zeroc.com/nexus/content/repositories/releases/</url>
-		</repository>
+		</repository-->
 	</repositories>
 
 	<build>

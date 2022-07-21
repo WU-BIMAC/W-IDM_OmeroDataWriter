@@ -3,6 +3,7 @@ package edu.umassmed.OmeroDataWriter;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -34,6 +35,7 @@ import omero.gateway.facility.DataManagerFacility;
 import omero.gateway.facility.TablesFacility;
 import omero.gateway.model.DatasetData;
 import omero.gateway.model.ExperimenterData;
+import omero.gateway.model.FileAnnotationData;
 import omero.gateway.model.ImageData;
 import omero.gateway.model.MapAnnotationData;
 import omero.gateway.model.ProjectData;
@@ -70,30 +72,34 @@ public class OmeroDataWriter {
 	private Gateway gateway;
 	private final LoginCredentials cred;
 
+	private static int INC = 262144;
+	private static String JSON_FILEANN_NS = "micro-meta-app.json";
+	private static String JSON_FILETYPE = "application/json";
+	
 	public OmeroDataWriter(final String hostName_arg, final Integer port_arg,
 			final String userName_arg, final String psw_arg) {
-
+		
 		this.config = new ome.formats.importer.ImportConfig();
-
+		
 		this.config.email.set("");
 		this.config.sendFiles.set(true);
 		this.config.sendReport.set(false);
 		this.config.contOnError.set(false);
 		this.config.debug.set(false);
-
+		
 		final String hostName = hostName_arg;
 		final Integer port = port_arg;
 		final String userName = userName_arg;
 		final String psw = psw_arg;
-
+		
 		this.config.hostname.set(hostName);
 		this.config.port.set(port);
 		this.config.username.set(userName);
 		this.config.password.set(psw);
-
+		
 		this.cred = new LoginCredentials(userName, psw, hostName, port);
 	}
-
+	
 	public void init() throws Exception {
 		this.store = this.config.createStore();
 		this.store.logVersionInfo(this.config.getIniVersionNumber());
@@ -101,27 +107,27 @@ public class OmeroDataWriter {
 		this.library = new ImportLibrary(this.store, this.reader);
 		this.handler = new ErrorHandler(this.config);
 		this.library.addObserver(new LoggingImportMonitor());
-
+		
 		final Logger simpleLogger = new SimpleLogger();
 		this.gateway = new Gateway(simpleLogger);
 		this.browser = this.gateway.getFacility(BrowseFacility.class);
 		this.admin = this.gateway.getFacility(AdminFacility.class);
 		this.dataManager = this.gateway.getFacility(DataManagerFacility.class);
-
+		
 		final ExperimenterData user = this.gateway.connect(this.cred);
 		this.ctx = new SecurityContext(user.getGroupId());
-		
+
 		this.rawFileStore = this.gateway.getRawFileService(this.ctx);
 	}
-
+	
 	private ImageData retrieveImage(final String imageName,
-			final DatasetData dataset) throws DSOutOfServiceException,
-			DSAccessException {
+			final DatasetData dataset)
+			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> datasetIDs = new ArrayList<Long>();
 		datasetIDs.add(dataset.getId());
-		final Collection<ImageData> images = this.browser.getImagesForDatasets(
-				this.ctx, datasetIDs);
-
+		final Collection<ImageData> images = this.browser
+				.getImagesForDatasets(this.ctx, datasetIDs);
+		
 		final Iterator<ImageData> i = images.iterator();
 		ImageData image;
 		while (i.hasNext()) {
@@ -129,16 +135,16 @@ public class OmeroDataWriter {
 			if (image.getName().equals(imageName))
 				return image;
 		}
-
+		
 		return null;
 	}
-
+	
 	private ProjectData retrieveProject(final Long id)
 			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> IDs = new ArrayList<Long>();
 		IDs.add(id);
-		final Collection<ProjectData> projects = this.browser.getProjects(
-				this.ctx, IDs);
+		final Collection<ProjectData> projects = this.browser
+				.getProjects(this.ctx, IDs);
 		final Iterator<ProjectData> i = projects.iterator();
 		ProjectData project;
 		while (i.hasNext()) {
@@ -147,13 +153,13 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private DatasetData retrieveDataset(final Long id)
 			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> IDs = new ArrayList<Long>();
 		IDs.add(id);
-		final Collection<DatasetData> datasets = this.browser.getDatasets(
-				this.ctx, IDs);
+		final Collection<DatasetData> datasets = this.browser
+				.getDatasets(this.ctx, IDs);
 		final Iterator<DatasetData> i = datasets.iterator();
 		DatasetData dataset;
 		while (i.hasNext()) {
@@ -162,7 +168,7 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private ImageData retrieveImage(final Long id)
 			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> IDs = new ArrayList<Long>();
@@ -177,15 +183,15 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private DatasetData retrieveDataset(final String datasetName,
-			final ProjectData project) throws DSOutOfServiceException,
-			DSAccessException {
+			final ProjectData project)
+			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> datasetIDs = this
 				.retrieveDatasetIDsFromProject(project);
-		final Collection<DatasetData> datasets = this.browser.getDatasets(
-				this.ctx, datasetIDs);
-
+		final Collection<DatasetData> datasets = this.browser
+				.getDatasets(this.ctx, datasetIDs);
+		
 		final Iterator<DatasetData> i = datasets.iterator();
 		DatasetData dataset;
 		while (i.hasNext()) {
@@ -195,7 +201,7 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private List<Long> retrieveDatasetIDsFromProject(final ProjectData project)
 			throws DSOutOfServiceException, DSAccessException {
 		final List<Long> datasetIDs = new ArrayList<Long>();
@@ -211,15 +217,15 @@ public class OmeroDataWriter {
 				}
 			}
 		}
-
+		
 		return datasetIDs;
 	}
-
+	
 	private ProjectData retrieveProject(final String projectName)
 			throws DSOutOfServiceException, DSAccessException {
 		final Collection<ProjectData> projects = this.browser
 				.getProjects(this.ctx);
-
+		
 		final Iterator<ProjectData> i = projects.iterator();
 		ProjectData project;
 		while (i.hasNext()) {
@@ -229,16 +235,16 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private Long retrieveUserId(final String userName)
 			throws DSOutOfServiceException, DSAccessException {
-		final ExperimenterData experimenter = this.admin.lookupExperimenter(
-				this.ctx, userName);
+		final ExperimenterData experimenter = this.admin
+				.lookupExperimenter(this.ctx, userName);
 		if (experimenter == null)
 			return -1L;
 		return experimenter.getId();
 	}
-
+	
 	public void close() {
 		if (this.gateway != null) {
 			this.gateway.disconnect();
@@ -247,14 +253,14 @@ public class OmeroDataWriter {
 			this.store.logout();
 		}
 	}
-
+	
 	public void writeDataToProject(final String projectName,
 			final String description, final Map<String, String> keyValueData)
 			throws DSOutOfServiceException, DSAccessException {
 		final ProjectData project = this.retrieveProject(projectName);
 		this.writeDataToProject(project.getId(), description, keyValueData);
 	}
-
+	
 	public void writeDataToProject(final Long id, final String description,
 			final Map<String, String> keyValueData)
 			throws DSOutOfServiceException, DSAccessException {
@@ -271,7 +277,7 @@ public class OmeroDataWriter {
 		data.setNameSpace(MapAnnotationData.NS_CLIENT_CREATED);
 		this.dataManager.attachAnnotation(this.ctx, data, project);
 	}
-
+	
 	public void writeDataToDataset(final String projectName,
 			final String datasetName, final String description,
 			final Map<String, String> keyValueData)
@@ -280,7 +286,7 @@ public class OmeroDataWriter {
 		final DatasetData dataset = this.retrieveDataset(datasetName, project);
 		this.writeDataToDataset(dataset.getId(), description, keyValueData);
 	}
-
+	
 	public void writeDataToDataset(final Long id, final String description,
 			final Map<String, String> keyValueData)
 			throws DSOutOfServiceException, DSAccessException {
@@ -297,7 +303,7 @@ public class OmeroDataWriter {
 		data.setNameSpace(MapAnnotationData.NS_CLIENT_CREATED);
 		this.dataManager.attachAnnotation(this.ctx, data, dataset);
 	}
-
+	
 	public void writeDataToImage(final String projectName,
 			final String datasetName, final String imageName,
 			final String description, final Map<String, String> keyValueData)
@@ -307,7 +313,7 @@ public class OmeroDataWriter {
 		final ImageData image = this.retrieveImage(imageName, dataset);
 		this.writeDataToImage(image.getId(), description, keyValueData);
 	}
-
+	
 	public void writeDataToImage(final Long id, final String description,
 			final Map<String, String> keyValueData)
 			throws DSOutOfServiceException, DSAccessException {
@@ -325,6 +331,71 @@ public class OmeroDataWriter {
 		this.dataManager.attachAnnotation(this.ctx, data, image);
 	}
 
+	public void writeFileAnnotationToImage(final Long id, final File f)
+			throws DSOutOfServiceException, DSAccessException,
+			FileNotFoundException, IOException, ServerError {
+		final ImageData image = this.retrieveImage(id);
+		final FileAnnotationData data = new FileAnnotationData(f);
+		data.setNameSpace("micro-meta-app.json");
+		// this.dataManager.attachAnnotation(this.ctx, data, image);
+
+		final String name = f.getName();
+		final String absolutePath = f.getAbsolutePath();
+		final String path = absolutePath.substring(0,
+				absolutePath.length() - name.length());
+		// create the original file object.
+		OriginalFile originalFile = new OriginalFileI();
+		originalFile.setName(omero.rtypes.rstring(f.getName()));
+		originalFile.setPath(omero.rtypes.rstring(path));
+		originalFile.setSize(omero.rtypes.rlong(f.length()));
+		final ChecksumAlgorithm checksumAlgorithm = new ChecksumAlgorithmI();
+		checksumAlgorithm
+				.setValue(omero.rtypes.rstring(ChecksumAlgorithmSHA1160.value));
+		originalFile.setHasher(checksumAlgorithm);
+		originalFile.setMimetype(
+				omero.rtypes.rstring(OmeroDataWriter.JSON_FILETYPE));
+		// Now we save the originalFile object
+		originalFile = (OriginalFile) this.dataManager
+				.saveAndReturnObject(this.ctx, originalFile);
+
+		// Initialize the service to load the raw data
+		final RawFileStorePrx rawFileStore = this.gateway
+				.getRawFileService(this.ctx);
+
+		long pos = 0;
+		int rlen;
+		final byte[] buf = new byte[OmeroDataWriter.INC];
+		ByteBuffer bbuf;
+		// Open file and read stream
+		try (FileInputStream stream = new FileInputStream(f)) {
+			rawFileStore.setFileId(originalFile.getId().getValue());
+			while ((rlen = stream.read(buf)) > 0) {
+				rawFileStore.write(buf, pos, rlen);
+				pos += rlen;
+				bbuf = ByteBuffer.wrap(buf);
+				bbuf.limit(rlen);
+			}
+			originalFile = rawFileStore.save();
+		} finally {
+			rawFileStore.close();
+		}
+
+		FileAnnotation fa = new FileAnnotationI();
+		fa.setFile(originalFile);
+		// fa.setDescription(omero.rtypes.rstring(description));
+		fa.setNs(omero.rtypes.rstring(OmeroDataWriter.JSON_FILEANN_NS));
+		fa = (FileAnnotation) this.dataManager.saveAndReturnObject(this.ctx,
+				fa);
+
+		// now link the image and the annotation
+		ImageAnnotationLink link = new ImageAnnotationLinkI();
+		link.setChild(fa);
+		link.setParent(image.asImage());
+		// save the link back to the server.
+		link = (ImageAnnotationLink) this.dataManager
+				.saveAndReturnObject(this.ctx, link);
+	}
+	
 	public void writeDataTableToProject(final String projectName,
 			final String datasetName, final String name, final String desc,
 			final List<String> columnNames,
@@ -335,7 +406,7 @@ public class OmeroDataWriter {
 		this.writeDataTableToProject(project.getId(), name, desc, columnNames,
 				tableColumnsData, saveAsCSV);
 	}
-
+	
 	public void writeDataTableToProject(final Long id, final String name,
 			final String desc, final List<String> columnNames,
 			final List<List<? extends Object>> tableColumnsData,
@@ -354,7 +425,7 @@ public class OmeroDataWriter {
 			columns[i] = new TableDataColumn(columnNames.get(i), 0,
 					val.getClass());
 		}
-
+		
 		final Object[][] data = new Object[columnNames.size()][maxSize];
 		for (int i = 0; i < tableColumnsData.size(); i++) {
 			final List<? extends Object> listData = tableColumnsData.get(i);
@@ -365,31 +436,31 @@ public class OmeroDataWriter {
 				data[i][y] = listData.get(y);
 			}
 		}
-
+		
 		TableData tableData = new TableData(columns, data);
-
+		
 		final TablesFacility tabFac = this.gateway
 				.getFacility(TablesFacility.class);
-
+		
 		// Attach the table to the image
 		tableData = tabFac.addTable(this.ctx, project, name, tableData);
-
+		
 		if (!saveAsCSV)
 			return;
-
+		
 		final FileAnnotation fa = this.createCSVFile(name, desc, columnNames,
 				tableColumnsData);
-
+		
 		// now link the image and the annotation
 		ProjectAnnotationLink link = new ProjectAnnotationLinkI();
 		link.setChild(fa);
 		link.setParent(project.asProject());
 		// save the link back to the server.
-		link = (ProjectAnnotationLink) this.dataManager.saveAndReturnObject(
-				this.ctx, link);
+		link = (ProjectAnnotationLink) this.dataManager
+				.saveAndReturnObject(this.ctx, link);
 		// o attach to a Dataset use DatasetAnnotationLink;
 	}
-
+	
 	public void writeDataTableToDataset(final String projectName,
 			final String datasetName, final String name, final String desc,
 			final List<String> columnNames,
@@ -401,7 +472,7 @@ public class OmeroDataWriter {
 		this.writeDataTableToDataset(dataset.getId(), name, desc, columnNames,
 				tableColumnsData, saveAsCSV);
 	}
-
+	
 	public void writeDataTableToDataset(final Long id, final String name,
 			final String desc, final List<String> columnNames,
 			final List<List<? extends Object>> tableColumnsData,
@@ -420,7 +491,7 @@ public class OmeroDataWriter {
 			columns[i] = new TableDataColumn(columnNames.get(i), 0,
 					val.getClass());
 		}
-
+		
 		final Object[][] data = new Object[columnNames.size()][maxSize];
 		for (int i = 0; i < tableColumnsData.size(); i++) {
 			final List<? extends Object> listData = tableColumnsData.get(i);
@@ -431,35 +502,34 @@ public class OmeroDataWriter {
 				data[i][y] = listData.get(y);
 			}
 		}
-
+		
 		TableData tableData = new TableData(columns, data);
-
+		
 		final TablesFacility tabFac = this.gateway
 				.getFacility(TablesFacility.class);
-
+		
 		// Attach the table to the image
 		tableData = tabFac.addTable(this.ctx, dataset, name, tableData);
-
+		
 		if (!saveAsCSV)
 			return;
-
+		
 		final FileAnnotation fa = this.createCSVFile(name, desc, columnNames,
 				tableColumnsData);
-
+		
 		// now link the image and the annotation
 		DatasetAnnotationLink link = new DatasetAnnotationLinkI();
 		link.setChild(fa);
 		link.setParent(dataset.asDataset());
 		// save the link back to the server.
-		link = (DatasetAnnotationLink) this.dataManager.saveAndReturnObject(
-				this.ctx, link);
+		link = (DatasetAnnotationLink) this.dataManager
+				.saveAndReturnObject(this.ctx, link);
 		// o attach to a Dataset use DatasetAnnotationLink;
 	}
-
+	
 	public void writeDataTableToImage(final String projectName,
-			final String datasetName, final String imageName,
-			final String name, final String desc,
-			final List<String> columnNames,
+			final String datasetName, final String imageName, final String name,
+			final String desc, final List<String> columnNames,
 			final List<List<? extends Object>> tableColumnsData,
 			final boolean saveAsCSV) throws DSOutOfServiceException,
 			DSAccessException, ExecutionException, ServerError, IOException {
@@ -469,7 +539,7 @@ public class OmeroDataWriter {
 		this.writeDataTableToImage(image.getId(), name, desc, columnNames,
 				tableColumnsData, saveAsCSV);
 	}
-
+	
 	public void writeDataTableToImage(final Long id, final String name,
 			final String desc, final List<String> columnNames,
 			final List<List<? extends Object>> tableColumnsData,
@@ -488,7 +558,7 @@ public class OmeroDataWriter {
 			columns[i] = new TableDataColumn(columnNames.get(i), 0,
 					val.getClass());
 		}
-
+		
 		final Object[][] data = new Object[columnNames.size()][maxSize];
 		for (int i = 0; i < tableColumnsData.size(); i++) {
 			final List<? extends Object> listData = tableColumnsData.get(i);
@@ -499,40 +569,40 @@ public class OmeroDataWriter {
 				data[i][y] = listData.get(y);
 			}
 		}
-
+		
 		TableData tableData = new TableData(columns, data);
-
+		
 		final TablesFacility tabFac = this.gateway
 				.getFacility(TablesFacility.class);
-
+		
 		// Attach the table to the image
 		tableData = tabFac.addTable(this.ctx, image, name, tableData);
-
+		
 		if (!saveAsCSV)
 			return;
-
+		
 		final FileAnnotation fa = this.createCSVFile(name, desc, columnNames,
 				tableColumnsData);
-
+		
 		// now link the image and the annotation
 		ImageAnnotationLink link = new ImageAnnotationLinkI();
 		link.setChild(fa);
 		link.setParent(image.asImage());
 		// save the link back to the server.
-		link = (ImageAnnotationLink) this.dataManager.saveAndReturnObject(
-				this.ctx, link);
+		link = (ImageAnnotationLink) this.dataManager
+				.saveAndReturnObject(this.ctx, link);
 		// o attach to a Dataset use DatasetAnnotationLink;
 	}
-
+	
 	public Object[] getImageInformation(final Long imageID)
 			throws DSOutOfServiceException, DSAccessException {
-
+		
 		final Collection<ProjectData> projects = this.browser
 				.getProjects(this.ctx);
-
+		
 		final Object[] infos = new Object[4];
 		String name = "";
-
+		
 		final Iterator<ProjectData> projIt = projects.iterator();
 		ProjectData project;
 		while (projIt.hasNext()) {
@@ -565,22 +635,22 @@ public class OmeroDataWriter {
 		}
 		return null;
 	}
-
+	
 	private FileAnnotation createCSVFile(final String name, final String desc,
 			final List<String> columnNames,
 			final List<List<? extends Object>> tableColumnsData)
 			throws ServerError, IOException, DSOutOfServiceException,
 			DSAccessException {
 		final int INC = 262144;
-
+		
 		// To retrieve the image see above.
 		final String csvName = name + "_CSV";
 		final File file = File.createTempFile(csvName, ".csv");
 		final String localName = file.getName();
 		final String absolutePath = file.getAbsolutePath();
-		final String path = absolutePath.substring(0, absolutePath.length()
-				- localName.length());
-
+		final String path = absolutePath.substring(0,
+				absolutePath.length() - localName.length());
+		
 		final FileWriter fw = new FileWriter(file);
 		final BufferedWriter bw = new BufferedWriter(fw);
 		int maxSize = 0;
@@ -592,7 +662,7 @@ public class OmeroDataWriter {
 				bw.write(",");
 			}
 			bw.write(columnNames.get(i));
-
+			
 		}
 		bw.write("\n");
 		for (int y = 0; y < maxSize; y++) {
@@ -613,22 +683,22 @@ public class OmeroDataWriter {
 		bw.flush();
 		bw.close();
 		fw.close();
-
+		
 		// create the original file object.
 		OriginalFile originalFile = new OriginalFileI();
 		originalFile.setName(omero.rtypes.rstring(csvName + ".csv"));
 		originalFile.setPath(omero.rtypes.rstring(path));
 		originalFile.setSize(omero.rtypes.rlong(file.length()));
 		final ChecksumAlgorithm checksumAlgorithm = new ChecksumAlgorithmI();
-		checksumAlgorithm.setValue(omero.rtypes
-				.rstring(ChecksumAlgorithmSHA1160.value));
+		checksumAlgorithm
+				.setValue(omero.rtypes.rstring(ChecksumAlgorithmSHA1160.value));
 		originalFile.setHasher(checksumAlgorithm);
 		originalFile.setMimetype(omero.rtypes.rstring("fileMimeType")); // or
 																		// "application/octet-stream"
 		// Now we save the originalFile object
-		originalFile = (OriginalFile) this.dataManager.saveAndReturnObject(
-				this.ctx, originalFile);
-
+		originalFile = (OriginalFile) this.dataManager
+				.saveAndReturnObject(this.ctx, originalFile);
+		
 		long pos = 0;
 		int rlen;
 		final byte[] buf = new byte[INC];
@@ -655,18 +725,19 @@ public class OmeroDataWriter {
 		fa.setDescription(omero.rtypes.rstring(desc));
 		// The name space you have set to identify the file annotation.
 		fa.setNs(omero.rtypes.rstring(MapAnnotationData.NS_CLIENT_CREATED));
-
+		
 		// save the file annotation.
-		fa = (FileAnnotation) this.dataManager
-				.saveAndReturnObject(this.ctx, fa);
-
+		fa = (FileAnnotation) this.dataManager.saveAndReturnObject(this.ctx,
+				fa);
+		
 		return fa;
 	}
-
+	
 	public static void main(final String[] args) {
-		String hostName = "localhost", port = "4064", userName = null, password = null;
-		System.getProperty(Paths.get(".").toAbsolutePath().normalize()
-				.toString());
+		String hostName = "localhost", port = "4064", userName = null,
+				password = null;
+		System.getProperty(
+				Paths.get(".").toAbsolutePath().normalize().toString());
 		if (args.length == 0) {
 			System.out.println("-h for help");
 		}
@@ -675,10 +746,10 @@ public class OmeroDataWriter {
 			System.out.println("-P <port>, 4064 by default");
 			System.out.println("-u <userName>");
 			System.out.println("-p <password>");
-			System.out
-					.println("-t <target>, target directory to launch the importer");
+			System.out.println(
+					"-t <target>, target directory to launch the importer");
 		}
-
+		
 		for (int i = 0; i < args.length; i++) {
 			if (args[i].equals("-H")) {
 				hostName = args[i + 1];
@@ -695,12 +766,12 @@ public class OmeroDataWriter {
 			if (args[i].equals("-t")) {
 			}
 		}
-
+		
 		if ((userName == null) || (password == null)) {
 			System.out.println("ERROR: username or password not specified");
 			return;
 		}
-
+		
 		Integer portI = null;
 		try {
 			portI = Integer.valueOf(port);
@@ -711,13 +782,13 @@ public class OmeroDataWriter {
 			System.out.println("ERROR: the port specified is invalid");
 			return;
 		}
-
+		
 		// final File f = new File(target);
 		// if (!f.exists() || !f.isDirectory()) {
 		// System.out.println("ERROR: the target specified is invalid");
 		// return;
 		// }
-
+		
 		final OmeroDataWriter dw = new OmeroDataWriter(hostName, portI,
 				userName, password);
 		try {
@@ -727,7 +798,7 @@ public class OmeroDataWriter {
 			dw.close();
 			return;
 		}
-
+		
 		try {
 			// final Map<String, String> map = new LinkedHashMap<String,
 			// String>();
@@ -772,7 +843,7 @@ public class OmeroDataWriter {
 			// data.add(col3);
 			// dw.writeDataTableToImage((long) 62102, "My_Test_Data",
 			// "csv file desc", colNames, data, true);
-
+			
 			final Object[] infos = dw.getImageInformation((long) 62102);
 			System.out.println(infos[0] + " / " + infos[1] + " / " + infos[2]
 					+ " / " + infos[3]);
@@ -798,7 +869,7 @@ public class OmeroDataWriter {
 		// dw.close();
 		// return;
 		// }
-
+		
 		dw.close();
 	}
 }
